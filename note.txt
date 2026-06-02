@@ -1,0 +1,3 @@
+link with cloudflare pages
+use same repo name as pages
+build command: npm install
