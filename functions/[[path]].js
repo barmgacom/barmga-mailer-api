@@ -3,7 +3,6 @@ import { connect } from "cloudflare:sockets";
 export async function onRequest(context) {
   const { request } = context;
   
-  // Hardened Global CORS Configuration Headers Matrix
   const corsHeaders = {
     "Access-Control-Allow-Origin": "https://barmga.com", 
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -11,15 +10,10 @@ export async function onRequest(context) {
     "Access-Control-Max-Age": "86400"
   };
 
-  // 1. Instantly intercept preflight requests with an explicit 200 OK
   if (request.method === "OPTIONS") {
-    return new Response(null, { 
-      status: 200, 
-      headers: corsHeaders 
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // 2. Safeguard non-POST requests cleanly
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { 
       status: 405, 
@@ -27,7 +21,6 @@ export async function onRequest(context) {
     });
   }
 
-  // 3. Encapsulate ALL runtime operations in a try/catch block to prevent 500 crashes
   try {
     const body = await request.json();
 
@@ -67,12 +60,17 @@ export async function onRequest(context) {
       });
     }
 
-    // ROUTE B: Native Infrastructure TCP Sockets Handshake Engine (Gmail, Mailgun, Relays)
+    // ROUTE B: Security-Upgraded TCP Sockets Handshake Engine
     const smtpHost = body.Host;
     const smtpPort = parseInt(body.Port) || 587;
     
-    // Open outbound TCP socket via Cloudflare's core layer
-    const socket = connect({ hostname: smtpHost, port: smtpPort });
+    // Auto-detect transport strategy: Port 465 triggers direct SSL/TLS encryption immediately, Port 587 triggers STARTTLS tracking logic
+    const transportStrategy = smtpPort === 465 ? "on" : "starttls";
+    
+    const socket = connect(
+      { hostname: smtpHost, port: smtpPort },
+      { secureTransport: transportStrategy }
+    );
     
     const writer = socket.writable.getWriter();
     const reader = socket.readable.getReader();
@@ -85,10 +83,11 @@ export async function onRequest(context) {
       return decoder.decode(value);
     }
 
-    // Interactive Protocol Exchange Execution Loops
+    // Secure Protocol Handshake State Iteration Loops
     await readInitialResponse(reader, decoder);
     await sendCommand("EHLO barmga-mailer");
     
+    // Base64 Authorization Exchanges
     const base64User = btoa(body.Username);
     const base64Pass = btoa(body.Password);
     
@@ -100,6 +99,7 @@ export async function onRequest(context) {
       throw new Error("SMTP Authentication Rejected by Provider");
     }
 
+    // Delivery Boundaries
     await sendCommand(`MAIL FROM:<${body.Username}>`);
     await sendCommand(`RCPT TO:<${body.To}>`);
     await sendCommand("DATA");
@@ -131,7 +131,6 @@ export async function onRequest(context) {
     });
 
   } catch (err) {
-    // Catch-all returns a valid 400 JSON instead of crashing, preserving headers
     return new Response(JSON.stringify({ status: "Error", message: err.message }), { 
       status: 400, 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
