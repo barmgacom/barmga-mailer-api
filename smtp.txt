@@ -1,0 +1,10 @@
+add spf and dmarc only for google smtp, port 465 on tool
+
+SMTP Server Host	smtp.gmail.com	Primary infrastructure delivery node routing address.
+Port Connection	465	Activates implicit SSL/TLS encryption instantly on the Cloudflare edge layer.
+Authentication Username	your-email@gmail.com	Your fully qualified custom domain email handle.
+Secure Password Key	Google App Password	A dedicated 16-character tracking passcode generated via Google Account Security settings. u obtain it from account/search app password create new project copy pass.
+
+remember to link the sender email domain with gmail account port 587 
+
+root with cloudflare to receive emails
