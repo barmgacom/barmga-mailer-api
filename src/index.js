@@ -1,16 +1,35 @@
-export async function onRequestPost(context) {
+export async function onRequest(context) {
   const { request } = context;
+  
+  // Strict Global CORS Header Configuration Maps
   const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": "https://barmga.com", // Restricts handshake entries safely to your domain
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400", // Caches preflight responses for 24 hours to accelerate bulk processing
   };
+
+  // 1. Force Intercept and Fulfill HTTP OPTIONS Preflight Instantly with an explicit 200 OK status
+  if (request.method === "OPTIONS") {
+    return new Response(null, { 
+      status: 200, 
+      headers: corsHeaders 
+    });
+  }
+
+  // 2. Block non-POST requests cleanly
+  if (request.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { 
+      status: 405, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
+  }
 
   try {
     const body = await request.json();
 
-    // 1. ROUTE A: Brevo HTTP REST API Engine Optimization
-    if (body.Password.startsWith("xkeysib-") || body.Host.includes("brevo.com")) {
+    // 3. ROUTE A: Brevo HTTP REST API Engine Optimization
+    if (body.Password.startsWith("xkeysib-") || (body.Host && body.Host.includes("brevo.com"))) {
       let fromName = "Sender";
       let fromEmail = body.Username;
       
@@ -39,14 +58,15 @@ export async function onRequestPost(context) {
 
       const brevoData = await brevoResponse.json();
       if (!brevoResponse.ok) throw new Error(brevoData.message || "Brevo API Error");
-      return new Response(JSON.stringify({ status: "OK" }), { headers: corsHeaders });
+      return new Response(JSON.stringify({ status: "OK" }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
-    // 2. ROUTE B: Native Infrastructure TCP Sockets Handshake Engine (Gmail, Mailgun, Relays)
+    // 4. ROUTE B: Native Infrastructure TCP Sockets Handshake Engine (Gmail, Mailgun, Relays)
     const smtpHost = body.Host;
     const smtpPort = parseInt(body.Port) || 587;
     
-    // Dynamically load Cloudflare's low-level sockets runtime core
     const { connect } = await import("cloudflare:sockets");
     const socket = connect({ hostname: smtpHost, port: smtpPort });
     
@@ -61,11 +81,10 @@ export async function onRequestPost(context) {
       return decoder.decode(value);
     }
 
-    // Interactive SMTP Protocol State Machine Handshake Loops
-    await readInitialResponse(reader, decoder); // Read initial server greeting banner
+    // Interactive Protocol Exchange Execution Loops
+    await readInitialResponse(reader, decoder);
     await sendCommand("EHLO barmga-mailer");
     
-    // Handle SMTP Authentication Login Exchange
     const base64User = btoa(body.Username);
     const base64Pass = btoa(body.Password);
     
@@ -77,12 +96,10 @@ export async function onRequestPost(context) {
       throw new Error("SMTP Authentication Rejected by Provider");
     }
 
-    // Build Payload Envelopes Data Map
     await sendCommand(`MAIL FROM:<${body.Username}>`);
     await sendCommand(`RCPT TO:<${body.To}>`);
     await sendCommand("DATA");
 
-    // Construct Clean IMF Production Mail Block Header Content Strings
     const emailData = [
       `From: ${body.From}`,
       `To: ${body.To}`,
@@ -97,7 +114,6 @@ export async function onRequestPost(context) {
     const finalDeliveryResult = await sendCommand(emailData);
     await sendCommand("QUIT");
 
-    // Release Socket Writers
     writer.releaseLock();
     reader.releaseLock();
     await socket.close();
@@ -106,25 +122,19 @@ export async function onRequestPost(context) {
       throw new Error(`SMTP Relay Transaction Fault: ${finalDeliveryResult}`);
     }
 
-    return new Response(JSON.stringify({ status: "OK" }), { headers: corsHeaders });
+    return new Response(JSON.stringify({ status: "OK" }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
 
   } catch (err) {
-    return new Response(JSON.stringify({ status: "Error", message: err.message }), { status: 400, headers: corsHeaders });
+    return new Response(JSON.stringify({ status: "Error", message: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 }
 
-// Read asynchronous stream chunks until initial SMTP server connection block settles
 async function readInitialResponse(reader, decoder) {
   const { value } = await reader.read();
   return decoder.decode(value);
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
 }
