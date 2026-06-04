@@ -20,3 +20,12 @@ DNS
 BREVO DKIM
 "v=DMARC1; p=none;"
 "v=spf1 include:_spf.mx.cloudflare.net include:_spf.google.com ~all"
+
+0- dns add records above after cloudflare rooting
+1- open google account management on browser 
+2- in sec section add phone & activate 2fa
+3- search for app passwords, create new app save password
+4- open gmail account settings import section add new email click, enter from + subdomain email
+5- entre smtp above
+6- send verification link to subdomain email (received with rooting) and verify
+7- add smtp records to sender tool
