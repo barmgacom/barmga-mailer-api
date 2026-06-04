@@ -8,3 +8,15 @@ Secure Password Key	Google App Password	A dedicated 16-character tracking passco
 remember to link the sender email domain with gmail account port 587 
 
 root with cloudflare to receive emails
+
+
+SMTP
+smtp.gmail.com
+465 (sender) 587 (gmail)
+ur-email@gmail.com
+app passwords
+
+DNS
+BREVO DKIM
+"v=DMARC1; p=none;"
+"v=spf1 include:_spf.mx.cloudflare.net include:_spf.google.com ~all"
