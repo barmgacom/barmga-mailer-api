@@ -3,21 +3,16 @@ export async function onRequest(context) {
   
   // Strict Global CORS Header Configuration Maps
   const corsHeaders = {
-    "Access-Control-Allow-Origin": "https://barmga.com", // Restricts handshake entries safely to your domain
+    "Access-Control-Allow-Origin": "https://barmga.com",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Max-Age": "86400", // Caches preflight responses for 24 hours to accelerate bulk processing
+    "Access-Control-Max-Age": "86400",
   };
 
-  // 1. Force Intercept and Fulfill HTTP OPTIONS Preflight Instantly with an explicit 200 OK status
   if (request.method === "OPTIONS") {
-    return new Response(null, { 
-      status: 200, 
-      headers: corsHeaders 
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // 2. Block non-POST requests cleanly
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { 
       status: 405, 
@@ -28,7 +23,7 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
 
-    // 3. ROUTE A: Brevo HTTP REST API Engine Optimization
+    // 1. ROUTE A: Brevo HTTP REST API Engine Optimization
     if (body.Password.startsWith("xkeysib-") || (body.Host && body.Host.includes("brevo.com"))) {
       let fromName = "Sender";
       let fromEmail = body.Username;
@@ -63,17 +58,22 @@ export async function onRequest(context) {
       });
     }
 
-    // 4. ROUTE B: Native Infrastructure TCP Sockets Handshake Engine (Gmail, Mailgun, Relays)
+    // 2. ROUTE B: Security-Upgraded TCP Sockets Handshake Engine
     const smtpHost = body.Host;
     const smtpPort = parseInt(body.Port) || 587;
     
     const { connect } = await import("cloudflare:sockets");
-    const socket = connect({ hostname: smtpHost, port: smtpPort });
     
-    const writer = socket.writable.getWriter();
-    const reader = socket.readable.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
+    // If port 465, activate secureTransport immediately. If port 587, connect in plain-text first.
+    let socket = connect(
+      { hostname: smtpHost, port: smtpPort },
+      { secureTransport: smtpPort === 465 ? "on" : "off" }
+    );
+    
+    let writer = socket.writable.getWriter();
+    let reader = socket.readable.getReader();
+    let decoder = new TextDecoder();
+    let encoder = new TextEncoder();
 
     async function sendCommand(cmd) {
       if (cmd) await writer.write(encoder.encode(cmd + "\r\n"));
@@ -81,10 +81,33 @@ export async function onRequest(context) {
       return decoder.decode(value);
     }
 
-    // Interactive Protocol Exchange Execution Loops
-    await readInitialResponse(reader, decoder);
-    await sendCommand("EHLO barmga-mailer");
+    // Read welcome banner
+    const initialResp = await reader.read();
+    let logBuffer = decoder.decode(initialResp.value);
+
+    // Send the first greeting
+    logBuffer = await sendCommand("EHLO barmga-mailer");
+
+    // ⚠️ CRUCIAL FIX FOR PORT 587 (STARTTLS Handshake Upgrade)
+    if (smtpPort === 587) {
+      const startTlsResp = await sendCommand("STARTTLS");
+      
+      // Release existing locks before upgrading the connection stream
+      writer.releaseLock();
+      reader.releaseLock();
+      
+      // Upgrade the plain TCP socket to an encrypted TLS socket natively
+      socket = socket.startTls({ hostname: smtpHost });
+      
+      // Re-initialize your readers and writers with the newly encrypted socket streams
+      writer = socket.writable.getWriter();
+      reader = socket.readable.getReader();
+      
+      // Repeat the greeting over the now secure channel as required by SMTP spec
+      logBuffer = await sendCommand("EHLO barmga-mailer");
+    }
     
+    // Base64 Authorization Exchanges (Safe to pass over encrypted line)
     const base64User = btoa(body.Username);
     const base64Pass = btoa(body.Password);
     
@@ -96,6 +119,7 @@ export async function onRequest(context) {
       throw new Error("SMTP Authentication Rejected by Provider");
     }
 
+    // Delivery Boundaries
     await sendCommand(`MAIL FROM:<${body.Username}>`);
     await sendCommand(`RCPT TO:<${body.To}>`);
     await sendCommand("DATA");
@@ -132,9 +156,4 @@ export async function onRequest(context) {
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
-}
-
-async function readInitialResponse(reader, decoder) {
-  const { value } = await reader.read();
-  return decoder.decode(value);
 }
