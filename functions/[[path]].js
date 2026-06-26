@@ -64,10 +64,17 @@ export async function onRequest(context) {
     
     const { connect } = await import("cloudflare:sockets");
     
-    // Connect clean. Only force immediate encryption if explicitly on port 465
+    // ⚠️ FIXED: Explicitly set to 'starttls' for Port 587 so startTls() is authorized later
+    let transportOption = "off";
+    if (smtpPort === 465) {
+      transportOption = "on";
+    } else if (smtpPort === 587) {
+      transportOption = "starttls";
+    }
+
     let socket = connect(
       { hostname: smtpHost, port: smtpPort },
-      { secureTransport: smtpPort === 465 ? "on" : "off" }
+      { secureTransport: transportOption }
     );
     
     let writer = socket.writable.getWriter();
@@ -83,29 +90,28 @@ export async function onRequest(context) {
 
     // Read the server's initial greeting
     const { value: initVal } = await reader.read();
-    let initialResponse = decoder.decode(initVal);
+    decoder.decode(initVal);
     
     // Say hello to the mail server
     await sendCommand("EHLO barmga-mailer");
     
-    // If we are on port 587, we must negotiate the security upgrade smoothly
+    // If we are on port 587, execute the secure TLS handshake upgrade
     if (smtpPort === 587) {
       await writer.write(encoder.encode("STARTTLS\r\n"));
       const { value: tlsVal } = await reader.read();
       const tlsResp = decoder.decode(tlsVal);
       
       if (tlsResp.startsWith("220")) {
-        // Correct lock release lifecycle sequence for Cloudflare's runtime environment
         writer.releaseLock();
         reader.releaseLock();
         
-        // Upgrade the active plain stream to fully encrypted TLS
+        // Securely upgrade the socket stream
         socket = socket.startTls({ hostname: smtpHost });
         
         writer = socket.writable.getWriter();
         reader = socket.readable.getReader();
         
-        // Re-greet the server over the newly secured channel
+        // Re-greet the server over the newly encrypted channel
         await sendCommand("EHLO barmga-mailer");
       }
     }
