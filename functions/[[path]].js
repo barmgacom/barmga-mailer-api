@@ -1,5 +1,3 @@
-import { connect } from "cloudflare:sockets";
-
 export async function onRequest(context) {
   const { request } = context;
   
@@ -24,7 +22,9 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
 
-    // ROUTE A: Brevo HTTP REST API Engine Optimization
+    // ==========================================
+    // ROUTE A: Brevo HTTP REST API Optimization
+    // ==========================================
     if (body.Password.startsWith("xkeysib-") || (body.Host && body.Host.includes("brevo.com"))) {
       let fromName = "Sender";
       let fromEmail = body.Username;
@@ -60,16 +60,83 @@ export async function onRequest(context) {
       });
     }
 
-    // ROUTE B: Security-Upgraded TCP Sockets Handshake Engine
+    // ==========================================
+    // ROUTE B: Microsoft 365 Direct Send Workaround
+    // (Bypasses Cloudflare's Broken Socket Engine)
+    // ==========================================
+    if (body.Host && (body.Host.includes("office365") || body.Host.includes("outlook"))) {
+      // Clean up the sender info
+      let fromEmail = body.Username;
+      if (body.From && body.From.includes("<")) {
+        const match = body.From.match(/<(.*?)>/);
+        if (match) fromEmail = match[1].trim();
+      }
+
+      // Convert your target custom domain dots into dashes dynamically to find the MX route
+      // e.g., web.asweq.com becomes web-asweq-com
+      const domainPart = fromEmail.split('@')[1];
+      const mxHost = `${domainPart.replace(/\./g, '-')}.mail.protection.outlook.com`;
+
+      // Connect to Microsoft's open direct-inbound boundary relay port
+      const { connect } = await import("cloudflare:sockets");
+      const socket = connect({ hostname: mxHost, port: 25 });
+      
+      const writer = socket.writable.getWriter();
+      const reader = socket.readable.getReader();
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+
+      async function sendCommand(cmd) {
+        if (cmd) await writer.write(encoder.encode(cmd + "\r\n"));
+        const { value } = await reader.read();
+        return decoder.decode(value);
+      }
+
+      const { value: initVal } = await reader.read();
+      let res = decoder.decode(initVal);
+
+      await sendCommand(`EHLO barmga-mailer`);
+      await sendCommand(`MAIL FROM:<${fromEmail}>`);
+      await sendCommand(`RCPT TO:<${body.To}>`);
+      await sendCommand("DATA");
+
+      const emailData = [
+        `From: ${body.From}`,
+        `To: ${body.To}`,
+        `Subject: ${body.Subject}`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/html; charset=UTF-8",
+        "",
+        body.Body,
+        "."
+      ].join("\r\n");
+
+      const finalDeliveryResult = await sendCommand(emailData);
+      await sendCommand("QUIT");
+
+      writer.releaseLock();
+      reader.releaseLock();
+      await socket.close();
+
+      if (finalDeliveryResult.startsWith("5")) {
+        throw new Error(`Microsoft Direct Send Error: ${finalDeliveryResult}`);
+      }
+
+      return new Response(JSON.stringify({ status: "OK" }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    // ==========================================
+    // ROUTE C: Standard Native TCP Socket Engine (Gmail, Mailgun, etc.)
+    // ==========================================
     const smtpHost = body.Host;
     const smtpPort = parseInt(body.Port) || 587;
     
-    // Auto-detect transport strategy: Port 465 triggers direct SSL/TLS encryption immediately, Port 587 triggers STARTTLS tracking logic
-    const transportStrategy = smtpPort === 465 ? "on" : "starttls";
-    
+    const { connect } = await import("cloudflare:sockets");
     const socket = connect(
       { hostname: smtpHost, port: smtpPort },
-      { secureTransport: transportStrategy }
+      { secureTransport: smtpPort === 465 ? "on" : "off" }
     );
     
     const writer = socket.writable.getWriter();
@@ -83,11 +150,11 @@ export async function onRequest(context) {
       return decoder.decode(value);
     }
 
-    // Secure Protocol Handshake State Iteration Loops
-    await readInitialResponse(reader, decoder);
+    const { value: initVal } = await reader.read();
+    decoder.decode(initVal);
+    
     await sendCommand("EHLO barmga-mailer");
     
-    // Base64 Authorization Exchanges
     const base64User = btoa(body.Username);
     const base64Pass = btoa(body.Password);
     
@@ -99,7 +166,6 @@ export async function onRequest(context) {
       throw new Error("SMTP Authentication Rejected by Provider");
     }
 
-    // Delivery Boundaries
     await sendCommand(`MAIL FROM:<${body.Username}>`);
     await sendCommand(`RCPT TO:<${body.To}>`);
     await sendCommand("DATA");
@@ -136,9 +202,4 @@ export async function onRequest(context) {
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
-}
-
-async function readInitialResponse(reader, decoder) {
-  const { value } = await reader.read();
-  return decoder.decode(value);
 }
