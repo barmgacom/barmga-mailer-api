@@ -1,17 +1,51 @@
 export async function onRequest(context) {
   const { request } = context;
-  
+  const url = new URL(request.url);
+
+  // Strict Global CORS Configuration
   const corsHeaders = {
     "Access-Control-Allow-Origin": "https://barmga.com", 
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400"
   };
 
+  // 1. Intercept HTTP OPTIONS Preflight Instantly
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // 2. DYNAMIC FIRST-PARTY SENDER OPEN TRACKING PIXEL ENGINE
+  if (request.method === "GET" && url.pathname.startsWith("/track/open/")) {
+    const pathParts = url.pathname.split("/");
+    const campaignId = pathParts[3];
+    const recipientId = pathParts[4]?.replace(".png", "");
+
+    if (campaignId && recipientId) {
+      console.log(`Open Registered -> Campaign: ${campaignId}, User: ${recipientId}`);
+      // Asynchronous database tracking logic triggers here safely
+    }
+
+    // High-deliverability raw transparent 1x1 GIF byte array asset
+    const transparentPixelBytes = new Uint8Array([
+      0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 
+      0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 
+      0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 
+      0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+    ]);
+
+    return new Response(transparentPixelBytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/gif",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
+    });
+  }
+
+  // Block non-POST traffic
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { 
       status: 405, 
@@ -22,7 +56,7 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
 
-    // 1. ROUTE A: Brevo HTTP REST API Engine
+    // 3. ROUTE A: Brevo HTTP REST API Engine Optimization
     if (body.Password.startsWith("xkeysib-") || (body.Host && body.Host.includes("brevo.com"))) {
       let fromName = "Sender";
       let fromEmail = body.Username;
@@ -58,13 +92,12 @@ export async function onRequest(context) {
       });
     }
 
-    // 2. ROUTE B: Universal Security-Upgraded TCP Sockets Handshake Engine
+    // 4. ROUTE B: Universal Security-Upgraded TCP Sockets Handshake Engine
     const smtpHost = body.Host;
     const smtpPort = parseInt(body.Port) || 587;
     
     const { connect } = await import("cloudflare:sockets");
     
-    // ⚠️ FIXED: Explicitly set to 'starttls' for Port 587 so startTls() is authorized later
     let transportOption = "off";
     if (smtpPort === 465) {
       transportOption = "on";
@@ -90,12 +123,20 @@ export async function onRequest(context) {
 
     // Read the server's initial greeting
     const { value: initVal } = await reader.read();
-    decoder.decode(initVal);
+    let initialResponse = decoder.decode(initVal);
+    
+    // ⚡ SAFE ISOLATED INJECTION FOR ZOHO DATA BUFFER DRAIN
+    if (smtpHost.toLowerCase().includes("zoho")) {
+      while (!/^\d{3}\s/.test(initialResponse.trim().split("\r\n").pop())) {
+        const { value: extraVal } = await reader.read();
+        initialResponse += decoder.decode(extraVal);
+      }
+    }
     
     // Say hello to the mail server
     await sendCommand("EHLO barmga-mailer");
     
-    // If we are on port 587, execute the secure TLS handshake upgrade
+    // If we are on port 587, negotiate the STARTTLS handshake upgrade safely
     if (smtpPort === 587) {
       await writer.write(encoder.encode("STARTTLS\r\n"));
       const { value: tlsVal } = await reader.read();
@@ -105,14 +146,22 @@ export async function onRequest(context) {
         writer.releaseLock();
         reader.releaseLock();
         
-        // Securely upgrade the socket stream
+        // Upgrade active socket to encrypted TLS
         socket = socket.startTls({ hostname: smtpHost });
         
         writer = socket.writable.getWriter();
         reader = socket.readable.getReader();
         
-        // Re-greet the server over the newly encrypted channel
-        await sendCommand("EHLO barmga-mailer");
+        // Re-greet the server over the newly secured line
+        let ehloTlsResp = await sendCommand("EHLO barmga-mailer");
+
+        // ⚡ SAFE ISOLATED INJECTION FOR ZOHO TLS BUFFER DRAIN
+        if (smtpHost.toLowerCase().includes("zoho")) {
+          while (!/^\d{3}\s/.test(ehloTlsResp.trim().split("\r\n").pop())) {
+            const { value: extraTlsVal } = await reader.read();
+            ehloTlsResp += decoder.decode(extraTlsVal);
+          }
+        }
       }
     }
     
